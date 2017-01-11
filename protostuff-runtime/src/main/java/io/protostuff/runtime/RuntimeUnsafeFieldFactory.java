@@ -36,6 +36,9 @@ import static io.protostuff.runtime.RuntimeFieldFactory.ID_STRING;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.security.AccessController;
+import java.security.PrivilegedActionException;
+import java.security.PrivilegedExceptionAction;
 import java.util.Date;
 
 import io.protostuff.ByteString;
@@ -56,36 +59,101 @@ import io.protostuff.WireFormat.FieldType;
  */
 public final class RuntimeUnsafeFieldFactory
 {
-
+	
+	private static final String Unsafe_Object_Name = "theUnsafe";
     static final sun.misc.Unsafe us = initUnsafe();
 
+//    private static sun.misc.Unsafe initUnsafe()
+//    {
+//        try
+//        {
+//            java.lang.reflect.Field f = sun.misc.Unsafe.class
+//                    .getDeclaredField("theUnsafe");
+//
+//            f.setAccessible(true);
+//
+//            return (sun.misc.Unsafe) f.get(null);
+//        }
+//        catch (Exception e)
+//        {
+//            // ignore
+//
+//            /*
+//             * android 3.x try { java.lang.reflect.Field f = sun.misc.Unsafe.class.getDeclaredField("THE_ONE");
+//             * 
+//             * f.setAccessible(true);
+//             * 
+//             * return (sun.misc.Unsafe)f.get(null); } catch(Exception e1) { // ignore }
+//             */
+//        }
+//
+//        return sun.misc.Unsafe.getUnsafe();
+//    }
+    
+    
+    /*****************************down add by liuxin********************************/
     private static sun.misc.Unsafe initUnsafe()
     {
-        try
-        {
-            java.lang.reflect.Field f = sun.misc.Unsafe.class
-                    .getDeclaredField("theUnsafe");
-
-            f.setAccessible(true);
-
-            return (sun.misc.Unsafe) f.get(null);
-        }
-        catch (Exception e)
-        {
-            // ignore
-
-            /*
-             * android 3.x try { java.lang.reflect.Field f = sun.misc.Unsafe.class.getDeclaredField("THE_ONE");
-             * 
-             * f.setAccessible(true);
-             * 
-             * return (sun.misc.Unsafe)f.get(null); } catch(Exception e1) { // ignore }
-             */
-        }
-
-        return sun.misc.Unsafe.getUnsafe();
+        return getUnsafe();
     }
+    
+    private static sun.misc.Unsafe getUnsafe() {
+		final sun.misc.Unsafe unsafe = getUnsafeInner();
+		if (unsafe == null) {
+			throw new NullPointerException("unsafe must not be null");
+		}
+		return unsafe;
+	}
 
+	private static sun.misc.Unsafe getUnsafeInner() {
+		sun.misc.Unsafe unsafe = null;
+		try {
+			unsafe = AccessController.doPrivileged(action);
+		} catch (final PrivilegedActionException e) {
+			e.printStackTrace();
+		}
+		return unsafe;
+	}
+
+	private static final PrivilegedExceptionAction<sun.misc.Unsafe> action = new PrivilegedExceptionAction<sun.misc.Unsafe>() {
+		public sun.misc.Unsafe run() throws Exception {
+			final java.lang.reflect.Field theUnsafeField = makeField();
+			return makeUnsafe(theUnsafeField);
+		}
+	};
+
+	private static java.lang.reflect.Field makeField() {
+		java.lang.reflect.Field field = null;
+		try {
+			field = sun.misc.Unsafe.class.getDeclaredField(Unsafe_Object_Name);
+			field.setAccessible(true);
+		} catch (final NoSuchFieldException e) {
+			e.printStackTrace();
+		} catch (final SecurityException e) {
+			e.printStackTrace();
+		}
+		if (null == field) {
+			throw new NullPointerException("java.lang.reflect.Field get from unsafe must not be null");
+		}
+		return field;
+	}
+
+	private static sun.misc.Unsafe makeUnsafe(final java.lang.reflect.Field field) {
+		sun.misc.Unsafe unsafe = null;
+		try {
+			unsafe = (sun.misc.Unsafe) field.get(null);
+		} catch (final IllegalArgumentException e) {
+			e.printStackTrace();
+		} catch (final IllegalAccessException e) {
+			e.printStackTrace();
+		}
+		if (null == unsafe) {
+			throw new NullPointerException("sun.misc.Unsafe must not be null");
+		}
+		return unsafe;
+	}
+    /*****************************up add by liuxin********************************/
+    
     private RuntimeUnsafeFieldFactory()
     {
     }
